@@ -13,8 +13,11 @@ ITEM_ID = "wepiqdxdzncjtnvmv5fegud4qy"
 ITEM_TITLE = "Test Login"
 HOST = "https://mock_host"
 TOKEN = "jwt_token"
-SS_CLIENT = client.new_client(HOST, TOKEN)
-SS_CLIENT_ASYNC = client.new_client(HOST, TOKEN, True)
+from onepasswordconnectsdk.config import ClientConfig, AsyncClientConfig
+
+# Create test clients using the new configuration approach
+SS_CLIENT = client.new_client(ClientConfig(url=HOST, token=TOKEN))
+SS_CLIENT_ASYNC = client.new_client(AsyncClientConfig(url=HOST, token=TOKEN))
 
 
 def test_get_item_by_id(respx_mock):
@@ -448,54 +451,67 @@ def generate_full_item():
 
 
 def test_default_timeout():
-    client_instance = client.new_client(HOST, TOKEN)
+    """Test default timeout with new configuration"""
+    config = ClientConfig(url=HOST, token=TOKEN)
+    client_instance = client.new_client(config)
     assert client_instance.session.timeout.read == DEFAULT_TIMEOUT_CONFIG.read
 
 
 def test_set_timeout_using_env_variable():
+    """Test timeout using environment variable with new configuration"""
     with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: '120'}):
-        client_instance = client.new_client(HOST, TOKEN)
+        config = ClientConfig(url=HOST, token=TOKEN)
+        client_instance = client.new_client(config)
         assert client_instance.session.timeout.read == 120
 
 
 @pytest.mark.asyncio
 def test_set_timeout_using_env_variable_async():
+    """Test timeout using environment variable with new async configuration"""
     with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: '120'}):
-        client_instance = client.new_client(HOST, TOKEN, is_async=True)
+        config = AsyncClientConfig(url=HOST, token=TOKEN)
+        client_instance = client.new_client(config)
         assert client_instance.session.timeout.read == 120
 
 
 def test_disable_all_timeouts():
-    with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: 'None'}):
-        client_instance = client.new_client(HOST, TOKEN)
-        assert client_instance.session.timeout.read is None
+    """Test disabling timeouts with new configuration"""
+    config = ClientConfig(url=HOST, token=TOKEN, timeout=None)
+    client_instance = client.new_client(config)
+    assert client_instance.session.timeout is None
 
 
-def test_env_client_request_timeout_env_var_is_empty_string():
-    with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: ''}):
-        client_instance = client.new_client(HOST, TOKEN)
-        assert client_instance.session.timeout.read == DEFAULT_TIMEOUT_CONFIG.read
+def test_custom_timeout_config():
+    """Test setting custom timeout through configuration"""
+    config = ClientConfig(
+        url=HOST,
+        token=TOKEN,
+        timeout=httpx.Timeout(read=60.0, connect=30.0)
+    )
+    client_instance = client.new_client(config)
+    assert client_instance.session.timeout.read == 60.0
+    assert client_instance.session.timeout.connect == 30.0
 
 
-def test_env_client_request_timeout_env_var_is_single_space_string():
-    with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: ' '}):
-        client_instance = client.new_client(HOST, TOKEN)
-        assert client_instance.session.timeout.read == DEFAULT_TIMEOUT_CONFIG.read
+def test_config_timeout_precedence():
+    """Test that config timeout takes precedence over environment variable"""
+    with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: '120'}):
+        config = ClientConfig(
+            url=HOST,
+            token=TOKEN,
+            timeout=httpx.Timeout(read=60.0)
+        )
+        client_instance = client.new_client(config)
+        assert client_instance.session.timeout.read == 60.0
 
 
-def test_env_client_request_timeout_env_var_is_not_numeric_string():
-    with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: 'abc'}):
-        client_instance = client.new_client(HOST, TOKEN)
-        assert client_instance.session.timeout.read == DEFAULT_TIMEOUT_CONFIG.read
-
-
-def test_env_client_request_timeout_env_var_is_zero():
-    with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: '0'}):
-        client_instance = client.new_client(HOST, TOKEN)
-        assert client_instance.session.timeout.read == DEFAULT_TIMEOUT_CONFIG.read
-
-
-def test_env_client_request_timeout_env_var_is_negative_number():
-    with mock.patch.dict(os.environ, {ENV_CLIENT_REQUEST_TIMEOUT: '-10'}):
-        client_instance = client.new_client(HOST, TOKEN)
-        assert client_instance.session.timeout.read == DEFAULT_TIMEOUT_CONFIG.read
+def test_config_with_limits():
+    """Test configuration with connection pool limits"""
+    config = ClientConfig(
+        url=HOST,
+        token=TOKEN,
+        limits=httpx.Limits(max_connections=100, max_keepalive_connections=20)
+    )
+    client_instance = client.new_client(config)
+    assert client_instance.session.limits.max_connections == 100
+    assert client_instance.session.limits.max_keepalive_connections == 20

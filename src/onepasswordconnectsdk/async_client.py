@@ -1,6 +1,8 @@
 """Python AsyncClient for connecting to 1Password Connect"""
 import httpx
 from httpx import HTTPError
+from typing import Optional
+from onepasswordconnectsdk.config import AsyncClientConfig
 from typing import Dict, List, Union
 import os
 
@@ -16,15 +18,37 @@ from onepasswordconnectsdk.models import File, Item, ItemVault, SummaryItem, Vau
 class AsyncClient:
     """Python Async Client Class"""
 
-    def __init__(self, url: str, token: str) -> None:
-        """Initialize async client"""
+    def __init__(self, url: str, token: str, config: Optional[AsyncClientConfig] = None) -> None:
+        """Initialize async client
+        
+        Args:
+            url: The url of the 1Password Connect API
+            token: The 1Password Service Account token
+            config: Optional client configuration
+        """
         self.url = url
         self.token = token
+        self.config = config
         self.session = self.create_session(url, token)
         self.serializer = Serializer()
 
     def create_session(self, url: str, token: str) -> httpx.AsyncClient:
-        return httpx.AsyncClient(base_url=url, headers=self.build_headers(token), timeout=get_timeout())
+        if self.config:
+            # Create a new client with our required settings while preserving config
+            return AsyncClientConfig(
+                base_url=url,
+                headers={**self.config.headers, **self.build_headers(token)},
+                timeout=self.config.timeout,
+                verify=self.config.verify if hasattr(self.config, 'verify') else None,
+                **{k: v for k, v in self.config.__dict__.items() if not k.startswith('_') and k not in ['headers', 'timeout', 'verify', 'base_url']}
+            )
+        
+        # Default client if no config provided
+        return AsyncClientConfig(
+            base_url=url,
+            headers=self.build_headers(token),
+            timeout=get_timeout()
+        )
 
     def build_headers(self, token: str) -> Dict[str, str]:
         return build_headers(token)

@@ -39,6 +39,38 @@ Check the [Python Connect SDK Example](example/README.md) to see an example of i
    export OP_CONNECT_CLIENT_REQ_TIMEOUT=90
    ```
 
+   2.2 The SDK provides a flexible configuration system:
+
+   ```python
+   from onepasswordconnectsdk import new_client
+   from onepasswordconnectsdk.config import ClientConfig
+   
+   # Configure using the ClientConfig class
+   config = ClientConfig(
+       url="{your-connect-host}",
+       token="{your-connect-token}",
+       certificate="/path/to/custom-ca.pem",  # Optional: for SSL verification
+       timeout=30.0,                          # Optional: custom timeout
+       follow_redirects=True                  # Optional: any httpx.Client option
+   )
+   client = new_client(config)
+
+   # Or use environment variables (OP_CONNECT_HOST and OP_CONNECT_TOKEN)
+   client = new_client()
+   ```
+
+   For async operations:
+   ```python
+   from onepasswordconnectsdk.config import AsyncClientConfig
+   
+   config = AsyncClientConfig(
+       url="{your-connect-host}",
+       token="{your-connect-token}",
+       certificate="/path/to/custom-ca.pem"
+   )
+   async_client = new_client(config)
+   ```
+
 3. Use the SDK:
 
    - Read a secret:

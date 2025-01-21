@@ -2,34 +2,80 @@
 
 ## Creating a Connect API Client
 
-There are two methods available for creating a client:
+The SDK provides a flexible configuration system through `ClientConfig` and `AsyncClientConfig` classes. These classes inherit from httpx.Client and httpx.AsyncClient respectively, allowing you to use any configuration options that httpx supports.
 
-- `new_client_from_environment`: Builds a new client for interacting with 1Password Connect using the `OP_CONNECT_TOKEN` and `OP_CONNECT_HOST` environment variables.
-- `new_client`: Builds a new client for interacting with 1Password Connect. Accepts the hostname of 1Password Connect and the API token generated for the application.
+### Basic Usage
 
 ```python
-from onepasswordconnectsdk.client import (
-    Client,
-    new_client_from_environment,
-    new_client
+from onepasswordconnectsdk import new_client
+from onepasswordconnectsdk.config import ClientConfig
+
+# Create a client with configuration
+config = ClientConfig(
+    url="{1Password_Connect_Host}",
+    token="{1Password_Connect_API_Token}"
 )
+client = new_client(config)
 
-# creating client using OP_CONNECT_TOKEN and OP_CONNECT_HOST environment variables
-connect_client_from_env: Client = new_client_from_environment()
-
-# creates a client by supplying hostname and 1Password Connect API token
-connect_client_from_token: Client = new_client(
-    "{1Password_Connect_Host}",
-    "{1Password_Connect_API_Token}")
-
-# creates async client
-connect_async_client: Client = new_client(
-    "{1Password_Connect_Host}",
-    "{1Password_Connect_API_Token}",
-    True)
+# Or use environment variables (OP_CONNECT_TOKEN and OP_CONNECT_HOST)
+client = new_client()
 ```
 
+### Advanced Configuration
+
+```python
+# Configure SSL verification
+config = ClientConfig(
+    url="{1Password_Connect_Host}",
+    token="{1Password_Connect_API_Token}",
+    certificate="/path/to/custom-ca.pem",  # Custom CA certificate
+    verify=False,                          # Disable SSL verification (not recommended for production)
+    cert=("/client.crt", "client.key")     # Client certificates for mTLS
+)
+
+# Configure timeouts and retries
+config = ClientConfig(
+    url="{1Password_Connect_Host}",
+    token="{1Password_Connect_API_Token}",
+    timeout=httpx.Timeout(
+        connect=5.0,    # connection timeout
+        read=10.0,      # read timeout
+        write=5.0,      # write timeout
+        pool=10.0       # pool timeout
+    ),
+    limits=httpx.Limits(
+        max_keepalive_connections=5,
+        max_connections=10
+    )
+)
+
+# Configure proxy and other network settings
+config = ClientConfig(
+    url="{1Password_Connect_Host}",
+    token="{1Password_Connect_API_Token}",
+    proxies="http://proxy.example.com:8080",
+    follow_redirects=True,
+    http2=True
+)
+```
+
+### Async Configuration
+
+```python
+from onepasswordconnectsdk.config import AsyncClientConfig
+
+# Create an async client with configuration
+async_config = AsyncClientConfig(
+    url="{1Password_Connect_Host}",
+    token="{1Password_Connect_API_Token}",
+    certificate="/path/to/custom-ca.pem",
+    timeout=30.0
+)
+async_client = new_client(async_config)
+```
 ## Environment Variables
+
+These environment variables are used when creating a client without explicit configuration (i.e., when calling `new_client()` with no arguments):
 
 - **OP_CONNECT_TOKEN** – The token to be used to authenticate with the 1Password Connect API.
 - **OP_CONNECT_HOST** - The hostname of the 1Password Connect API.
@@ -38,9 +84,9 @@ connect_async_client: Client = new_client(
   - `http://localhost:8080` if the Connect server is running in Docker on the same host.
   - `http(s)://<ip>:8080` or `http(s)://<hostname>:8080` if the Connect server is running on another host.
 - **OP_VAULT** - The default vault to fetch items from if not specified.
-- **OP_CONNECT_CLIENT_ASYNC** - Whether to use async client or not. Possible values are:
-     - True - to use async client
-     - False - to use synchronous client (this is used by default)
+
+Note: When using the configuration classes (ClientConfig or AsyncClientConfig), these environment variables are not used as the configuration is provided explicitly.
+
 
 
 ## Working with Vaults

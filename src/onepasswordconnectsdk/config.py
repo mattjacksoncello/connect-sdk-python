@@ -1,6 +1,31 @@
+"""Configuration for 1Password Connect SDK
+
+This module provides configuration classes for the 1Password Connect SDK that extend
+the standard httpx client configurations, as well as functionality for loading
+configuration values from 1Password items.
+
+Example:
+    Basic usage with custom CA certificate:
+        >>> config = ClientConfig(certificate="/path/to/custom-ca.pem")
+        >>> client = new_client("https://connect.example.com", "token", config=config)
+
+    With additional httpx options:
+        >>> config = ClientConfig(
+        ...     certificate="/path/to/custom-ca.pem",
+        ...     timeout=30.0,
+        ...     follow_redirects=True
+        ... )
+        >>> client = new_client("https://connect.example.com", "token", config=config)
+
+    For async operations:
+        >>> config = AsyncClientConfig(certificate="/path/to/custom-ca.pem")
+        >>> client = new_client("https://connect.example.com", "token", is_async=True, config=config)
+"""
 import os
 import shlex
-from typing import List, Dict
+import httpx
+from typing import List, Dict, Optional
+
 from onepasswordconnectsdk.client import Client
 from onepasswordconnectsdk.models import (
     Item,
@@ -14,6 +39,90 @@ from onepasswordconnectsdk.models.constants import (
     VAULT_TAG,
     VAULT_ID_ENV_VARIABLE,
 )
+
+
+class ClientConfig(httpx.Client):
+    """Base configuration class for HTTP client settings
+
+    This class extends httpx.Client to provide a flexible configuration system that can be
+    extended with additional settings as needed. It supports all standard httpx configuration
+    options while allowing for custom configurations to be added.
+
+    The class is designed to be extensible, making it easy to add new configuration options
+    in the future without breaking existing functionality. It can be used as a base for
+    implementing various HTTP client configurations.
+
+    Args:
+        certificate (str, optional): Path to CA certificate file for SSL verification
+        **kwargs: Additional arguments passed to httpx.Client. These can include any valid
+                 httpx.Client parameters such as timeout, limits, proxies, etc.
+    """
+
+    def __init__(self, url: str, token: str, certificate: Optional[str] = None, **kwargs):
+        """Initialize client configuration
+
+        Args:
+            url: The url of the 1Password Connect API
+            token: The 1Password Service Account token
+            certificate: Optional path to CA certificate file for SSL verification
+            **kwargs: Additional arguments passed to httpx.Client
+        """
+        self.url = url
+        self.token = token
+        # If certificate is provided, set it as the verify option
+        if certificate is not None:
+            kwargs["verify"] = certificate
+        super().__init__(**kwargs)
+
+    @property
+    def certificate(self) -> Optional[str]:
+        """Get the certificate path if one was provided"""
+        verify = getattr(self, "verify", None)
+        if isinstance(verify, str):
+            return verify
+        return None
+
+
+class AsyncClientConfig(httpx.AsyncClient):
+    """Base configuration class for asynchronous HTTP client settings
+
+    This class extends httpx.AsyncClient to provide a flexible configuration system that can be
+    extended with additional settings as needed. It supports all standard httpx configuration
+    options while allowing for custom configurations to be added.
+
+    The class is designed to be extensible, making it easy to add new configuration options
+    in the future without breaking existing functionality. It can be used as a base for
+    implementing various asynchronous HTTP client configurations.
+
+    Args:
+        certificate (str, optional): Path to CA certificate file for SSL verification
+        **kwargs: Additional arguments passed to httpx.AsyncClient. These can include any valid
+                 httpx.AsyncClient parameters such as timeout, limits, proxies, etc.
+    """
+
+    def __init__(self, url: str, token: str, certificate: Optional[str] = None, **kwargs):
+        """Initialize async client configuration
+
+        Args:
+            url: The url of the 1Password Connect API
+            token: The 1Password Service Account token
+            certificate: Optional path to CA certificate file for SSL verification
+            **kwargs: Additional arguments passed to httpx.AsyncClient
+        """
+        self.url = url
+        self.token = token
+        # If certificate is provided, set it as the verify option
+        if certificate is not None:
+            kwargs["verify"] = certificate
+        super().__init__(**kwargs)
+
+    @property
+    def certificate(self) -> Optional[str]:
+        """Get the certificate path if one was provided"""
+        verify = getattr(self, "verify", None)
+        if isinstance(verify, str):
+            return verify
+        return None
 
 
 def load_dict(client: Client, config: dict):
