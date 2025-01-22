@@ -41,47 +41,50 @@ Check the [Python Connect SDK Example](example/README.md) to see an example of i
 
 3. Use the SDK:
 
-   - Read a secret:
+   Choose between synchronous or asynchronous clients:
 
-     ```python
-     from onepasswordconnectsdk.client import (
-         Client,
-         new_client_from_environment,
-     )
+   ```python
+   # Synchronous client
+   from onepasswordconnectsdk.client import Client, new_client_from_environment
 
-     connect_client: Client = new_client_from_environment()
+   # Create client using environment variables
+   client: Client = new_client_from_environment()
 
-     client.get_item("{item_id}", "{vault_id}")
-     ```
+   # Read a secret
+   item = client.get_item("{item_id}", "{vault_id}")
 
-   - Write a secret:
+   # Write a secret
+   from onepasswordconnectsdk.models import Item, ItemVault, Field
 
-     ```python
-     from onepasswordconnectsdk.client import (
-         Client,
-         new_client_from_environment,
-     }
+   new_item = Item(
+       vault=ItemVault(id=vault_id),
+       title="Example Login",
+       category="LOGIN",
+       fields=[Field(value="username123", purpose="USERNAME")]
+   )
+   created_item = client.create_item(vault_id, new_item)
+   ```
 
-     from onepasswordconnectsdk.models import (
-         Item,
-         ItemVault,
-         Field
-     )
+   ```python
+   # Asynchronous client
+   import asyncio
+   from onepasswordconnectsdk.async_client import AsyncClient, new_async_client_from_environment
 
-     connect_client: Client = new_client_from_environment()
+   async def main():
+       # Create client using environment variables
+       client: AsyncClient = new_async_client_from_environment()
+       
+       try:
+           # Read and write secrets asynchronously
+           item = await client.get_item("{item_id}", "{vault_id}")
+           created_item = await client.create_item(vault_id, new_item)
+       finally:
+           await client.session.aclose()
 
-     # Example item creation. Create an item with your desired arguments.
-     item = Item(
-         vault=ItemVault(id=op_vault),
-         id="custom_id",
-         title="newtitle",
-         category="LOGIN",
-         tags=["1password-connect"],
-         fields=[Field(value="new_user", purpose="USERNAME")],
-     )
+   asyncio.run(main())
+   ```
 
-     new_item = connect_client.create_item(op_vault, item)
-     ```
+   Both client types support additional configuration through [httpx client options](https://www.python-httpx.org/api/#client).
 
 For more examples of how to use the SDK, check out [USAGE.md](USAGE.md).
 

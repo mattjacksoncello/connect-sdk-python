@@ -22,15 +22,24 @@ ENV_SERVICE_ACCOUNT_JWT_VARIABLE = "OP_CONNECT_TOKEN"
 class Client:
     """Python Client Class"""
 
-    def __init__(self, url: str, token: str) -> None:
-        """Initialize client"""
-        self.url = url
-        self.token = token
-        self.session = self.create_session(url, token)
+    def __init__(self, config: 'ClientConfig') -> None:
+        """Initialize client
+        
+        Args:
+            config: ClientConfig instance containing all client configuration
+        """
+        self.url = config.url
+        self.token = config.token
+        self.session = self.create_session(config)
         self.serializer = Serializer()
 
-    def create_session(self, url: str, token: str) -> httpx.Client:
-        return httpx.Client(base_url=url, headers=self.build_headers(token), timeout=get_timeout())
+    def create_session(self, config: 'ClientConfig') -> httpx.Client:
+        """Create an HTTP session using the provided configuration"""
+        # Update headers in the existing config
+        headers = config.headers or {}
+        headers.update(self.build_headers(config.token))
+        config.headers = headers
+        return config
 
     def build_headers(self, token: str) -> Dict[str, str]:
         return build_headers(token)
@@ -379,27 +388,32 @@ class Client:
         return self.serializer.sanitize_for_serialization(obj)
 
 
-def new_client(url: str, token: str) -> Client:
+def new_client(url: str, token: str, **kwargs) -> Client:
     """Builds a new client for interacting with 1Password Connect
-    Parameters:
-    url: The url of the 1Password Connect API
-    token: The 1Password Service Account token
+    
+    Args:
+        url: The url of the 1Password Connect API
+        token: The 1Password Service Account token
+        **kwargs: Additional httpx.Client configuration options
 
     Returns:
-    Client: The 1Password Connect client
+        Client: The 1Password Connect client
     """
-    return Client(url, token)
+    from onepasswordconnectsdk.config import ClientConfig
+    config = ClientConfig(url=url, token=token, **kwargs)
+    return Client(config)
 
 
-def new_client_from_environment(url: str = None) -> Client:
+def new_client_from_environment(url: str = None, **kwargs) -> Client:
     """Builds a new client for interacting with 1Password Connect
     using the OP_CONNECT_TOKEN environment variable
 
-    Parameters:
-    url: The url of the 1Password Connect API
+    Args:
+        url: The url of the 1Password Connect API
+        **kwargs: Additional httpx.Client configuration options
 
     Returns:
-    Client: The 1Password Connect client
+        Client: The 1Password Connect client
     """
     token = os.environ.get(ENV_SERVICE_ACCOUNT_JWT_VARIABLE)
 
@@ -416,4 +430,4 @@ def new_client_from_environment(url: str = None) -> Client:
             f"{ENV_SERVICE_ACCOUNT_JWT_VARIABLE} variable"
         )
 
-    return new_client(url, token)
+    return new_client(url, token, certificate, **kwargs)

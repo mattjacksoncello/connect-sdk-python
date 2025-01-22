@@ -2,10 +2,9 @@
 
 ## Creating a Connect API Client
 
-There are two methods available for creating a client:
+The SDK provides both synchronous and asynchronous clients. Each type has two creation methods:
 
-- `new_client_from_environment`: Builds a new client for interacting with 1Password Connect using the `OP_CONNECT_TOKEN` and `OP_CONNECT_HOST` environment variables.
-- `new_client`: Builds a new client for interacting with 1Password Connect. Accepts the hostname of 1Password Connect and the API token generated for the application.
+### Synchronous Client
 
 ```python
 from onepasswordconnectsdk.client import (
@@ -14,20 +13,50 @@ from onepasswordconnectsdk.client import (
     new_client
 )
 
-# creating client using OP_CONNECT_TOKEN and OP_CONNECT_HOST environment variables
-connect_client_from_env: Client = new_client_from_environment()
+# Create client using environment variables
+connect_client: Client = new_client_from_environment()
 
-# creates a client by supplying hostname and 1Password Connect API token
-connect_client_from_token: Client = new_client(
+# Create client with explicit configuration
+connect_client: Client = new_client(
     "{1Password_Connect_Host}",
     "{1Password_Connect_API_Token}")
 
-# creates async client
-connect_async_client: Client = new_client(
+# Create client with additional httpx options
+connect_client: Client = new_client(
     "{1Password_Connect_Host}",
     "{1Password_Connect_API_Token}",
-    True)
+    verify="path/to/certificate.pem",  # SSL certificate
+    timeout=30.0,                      # Custom timeout
+    proxies={"http://": "http://proxy.example.com"})  # Proxy configuration
 ```
+
+### Asynchronous Client
+
+```python
+from onepasswordconnectsdk.async_client import (
+    AsyncClient,
+    new_async_client_from_environment,
+    new_async_client
+)
+
+# Create async client using environment variables
+async_client: AsyncClient = new_async_client_from_environment()
+
+# Create async client with explicit configuration
+async_client: AsyncClient = new_async_client(
+    "{1Password_Connect_Host}",
+    "{1Password_Connect_API_Token}")
+
+# Create async client with additional httpx options
+async_client: AsyncClient = new_async_client(
+    "{1Password_Connect_Host}",
+    "{1Password_Connect_API_Token}",
+    verify="path/to/certificate.pem",  # SSL certificate
+    timeout=30.0,                      # Custom timeout
+    proxies={"http://": "http://proxy.example.com"})  # Proxy configuration
+```
+
+Both client types support all [httpx client options](https://www.python-httpx.org/api/#client) through their respective configuration classes.
 
 ## Environment Variables
 
@@ -38,9 +67,6 @@ connect_async_client: Client = new_client(
   - `http://localhost:8080` if the Connect server is running in Docker on the same host.
   - `http(s)://<ip>:8080` or `http(s)://<hostname>:8080` if the Connect server is running on another host.
 - **OP_VAULT** - The default vault to fetch items from if not specified.
-- **OP_CONNECT_CLIENT_ASYNC** - Whether to use async client or not. Possible values are:
-     - True - to use async client
-     - False - to use synchronous client (this is used by default)
 
 
 ## Working with Vaults
@@ -147,23 +173,32 @@ CONFIG = Config()
 values_object = onepasswordconnectsdk.load(connect_client, CONFIG)
 ```
 
-## Async client
+## Using the Async Client
 
-All the examples above can work using an async client.
+The async client provides the same functionality as the sync client but with async/await syntax:
+
 ```python
 import asyncio
-
-# initialize async client by passing `is_async = True`
-async_client: Client = new_client(
-    "{1Password_Connect_Host}",
-    "{1Password_Connect_API_Token}",
-    True)
+from onepasswordconnectsdk.async_client import AsyncClient, new_async_client
 
 async def main():
-    vaults = await async_client.get_vaults()
-    item = await async_client.get_item("{item_id}", "{vault_id}")
-    # do something with vaults and item
-    await async_client.session.aclose()  # close the client gracefully when you are done
+    # Create async client with optional httpx configuration
+    async_client: AsyncClient = new_async_client(
+        "{1Password_Connect_Host}",
+        "{1Password_Connect_API_Token}",
+        timeout=30.0  # Optional httpx configuration
+    )
+
+    try:
+        # Use the client
+        vaults = await async_client.get_vaults()
+        item = await async_client.get_item("{item_id}", "{vault_id}")
+        # Do something with vaults and item
+    finally:
+        # Always close the client when done
+        await async_client.session.aclose()
 
 asyncio.run(main())
 ```
+
+All the examples shown above for the sync client work the same way with the async client, just with async/await syntax.

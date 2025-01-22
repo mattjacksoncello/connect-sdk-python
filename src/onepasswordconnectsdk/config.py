@@ -1,7 +1,55 @@
 import os
 import shlex
-from typing import List, Dict
+from typing import List, Dict, Optional
+import httpx
 from onepasswordconnectsdk.client import Client
+from onepasswordconnectsdk.utils import get_timeout
+
+class ClientConfig(httpx.Client):
+    """Configuration class for 1Password Connect synchronous clients"""
+    def __init__(
+        self,
+        url: str,
+        token: str,
+        **kwargs
+    ) -> None:
+        """Initialize client configuration
+        
+        Args:
+            url: The url of the 1Password Connect API
+            token: The 1Password Service Account token
+            **kwargs: Additional httpx.Client configuration options
+        """
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = get_timeout()
+            
+        super().__init__(base_url=url, **kwargs)
+        self.url = url
+        self.token = token
+
+
+class AsyncClientConfig(httpx.AsyncClient):
+    """Configuration class for 1Password Connect asynchronous clients"""
+    def __init__(
+        self,
+        url: str,
+        token: str,
+        **kwargs
+    ) -> None:
+        """Initialize async client configuration
+        
+        Args:
+            url: The url of the 1Password Connect API
+            token: The 1Password Service Account token
+            **kwargs: Additional httpx.AsyncClient configuration options
+        """
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = get_timeout()
+            
+        super().__init__(base_url=url, **kwargs)
+        self.url = url
+        self.token = token
+
 from onepasswordconnectsdk.models import (
     Item,
     ParsedField,
@@ -37,7 +85,7 @@ def load_dict(client: Client, config: dict):
 
     opitem (required): describes the name of the item to access from 1Password
 
-    offield (required): describes the name of the field to access within
+    opfield (required): describes the name of the field to access within
     the specified item
 
     opvault: Only required if OP_VAULT is not set. Used to decribe the
