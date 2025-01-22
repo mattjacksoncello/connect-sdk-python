@@ -21,15 +21,24 @@ from onepasswordconnectsdk.models import File, Item, ItemVault, SummaryItem, Vau
 class AsyncClient:
     """Python Async Client Class"""
 
-    def __init__(self, url: str, token: str) -> None:
-        """Initialize async client"""
-        self.url = url
-        self.token = token
-        self.session = self.create_session(url, token)
+    def __init__(self, config: 'AsyncClientConfig') -> None:
+        """Initialize async client
+        
+        Args:
+            config: AsyncClientConfig instance containing all client configuration
+        """
+        self.url = config.url
+        self.token = config.token
+        self.session = self.create_session(config)
         self.serializer = Serializer()
 
-    def create_session(self, url: str, token: str) -> httpx.AsyncClient:
-        return httpx.AsyncClient(base_url=url, headers=self.build_headers(token), timeout=get_timeout())
+    def create_session(self, config: 'AsyncClientConfig') -> httpx.AsyncClient:
+        """Create an HTTP session using the provided configuration"""
+        # Update headers in the existing config
+        headers = config.headers or {}
+        headers.update(self.build_headers(config.token))
+        config.headers = headers
+        return config
 
     def build_headers(self, token: str) -> Dict[str, str]:
         return build_headers(token)
@@ -378,27 +387,32 @@ class AsyncClient:
         return self.serializer.sanitize_for_serialization(obj)
 
 
-def new_async_client(url: str, token: str) -> AsyncClient:
+def new_async_client(url: str, token: str, **kwargs) -> AsyncClient:
     """Builds a new client for interacting with 1Password Connect
-    Parameters:
-    url: The url of the 1Password Connect API
-    token: The 1Password Service Account token
+    
+    Args:
+        url: The url of the 1Password Connect API
+        token: The 1Password Service Account token
+        **kwargs: Additional httpx.AsyncClient configuration options
 
     Returns:
-    AsyncClient: The 1Password Connect client
+        AsyncClient: The 1Password Connect client
     """
-    return AsyncClient(url, token)
+    from onepasswordconnectsdk.config import AsyncClientConfig
+    config = AsyncClientConfig(url=url, token=token, **kwargs)
+    return AsyncClient(config)
 
 
-def new_async_client_from_environment(url: str = None) -> AsyncClient:
+def new_async_client_from_environment(url: str = None, **kwargs) -> AsyncClient:
     """Builds a new client for interacting with 1Password Connect
     using the OP_CONNECT_TOKEN environment variable
 
-    Parameters:
-    url: The url of the 1Password Connect API
+    Args:
+        url: The url of the 1Password Connect API
+        **kwargs: Additional httpx.AsyncClient configuration options
 
     Returns:
-    AsyncClient: The 1Password Connect client
+        AsyncClient: The 1Password Connect client
     """
     token = os.environ.get(ENV_SERVICE_ACCOUNT_JWT_VARIABLE)
 
@@ -415,4 +429,4 @@ def new_async_client_from_environment(url: str = None) -> AsyncClient:
             f"{ENV_SERVICE_ACCOUNT_JWT_VARIABLE} variable"
         )
 
-    return new_async_client(url, token)
+    return new_async_client(url, token, certificate, **kwargs)
