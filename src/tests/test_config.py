@@ -1,6 +1,14 @@
-from httpx import Response
+import os
+import pytest
+from httpx import Response, Client, AsyncClient, Timeout
 import onepasswordconnectsdk
 from onepasswordconnectsdk import client
+from onepasswordconnectsdk.config import ClientConfig, AsyncClientConfig
+from onepasswordconnectsdk.utils import get_timeout
+
+# Optional cert path for SSL verification in tests
+# Set this to a valid cert path if available, otherwise verification will be disabled
+CERT_PATH = os.getenv('TEST_CERT_PATH', False)
 
 VAULT_ID = "abcdefghijklmnopqrstuvwxyz"
 ITEM_NAME1 = "TEST USER"
@@ -9,11 +17,118 @@ ITEM_NAME2 = "Another User"
 ITEM_ID2 = "wepiqdxdzncjtnvmv5fegud4q2"
 HOST = "https://mock_host"
 TOKEN = "jwt_token"
-SS_CLIENT = client.new_client(HOST, TOKEN)
+
+# Create client config
+client_config = ClientConfig(url=HOST, token=TOKEN)
+SS_CLIENT = client.Client(client_config)
 
 USERNAME_VALUE = "new_user"
 PASSWORD_VALUE = "password"
 HOST_VALUE = "http://somehost"
+
+def test_client_config_initialization():
+    """Test ClientConfig initialization and inheritance"""
+    config = ClientConfig(url=HOST, token=TOKEN)
+    assert isinstance(config, Client)
+    assert config.url == HOST
+    assert config.token == TOKEN
+    assert config.timeout == get_timeout()
+
+def test_async_client_config_initialization():
+    """Test AsyncClientConfig initialization and inheritance"""
+    config = AsyncClientConfig(url=HOST, token=TOKEN)
+    assert isinstance(config, AsyncClient)
+    assert config.url == HOST
+    assert config.token == TOKEN
+    assert config.timeout == get_timeout()
+
+def test_client_config_with_options():
+    """Test ClientConfig with httpx options
+    
+    Examples of certificate configuration:
+        # Using a certificate file
+        config = ClientConfig(url=HOST, token=TOKEN, verify="path/to/cert.pem")
+        
+        # Using a certificate bundle
+        config = ClientConfig(url=HOST, token=TOKEN, verify="/etc/ssl/certs")
+        
+        # Disable certificate verification (not recommended for production)
+        config = ClientConfig(url=HOST, token=TOKEN, verify=False)
+        
+        # Custom client certificate
+        config = ClientConfig(
+            url=HOST,
+            token=TOKEN,
+            cert=("path/to/client.crt", "path/to/client.key")
+        )
+    """
+    # Test basic options
+    custom_timeout = 30.0
+    config = ClientConfig(
+        url=HOST,
+        token=TOKEN,
+        timeout=custom_timeout,
+        verify=CERT_PATH,  # Use configured cert path or disable verification
+        cert=None,         # Client certificate (if needed)
+        follow_redirects=True
+    )
+    assert isinstance(config.timeout, Timeout)
+    assert config.timeout == Timeout(custom_timeout)
+    # If we got here without an error, the verify parameter was accepted
+    assert config.follow_redirects is True
+
+
+    # Just verify that these configurations are accepted without error
+    ClientConfig(
+        url=HOST,
+        token=TOKEN,
+        verify=False  # Disable SSL verification
+    )
+    
+    
+
+def test_async_client_config_with_options():
+    """Test AsyncClientConfig with httpx options
+    
+    Examples of certificate configuration:
+        # Using a certificate file
+        config = AsyncClientConfig(url=HOST, token=TOKEN, verify="path/to/cert.pem")
+        
+        # Using a certificate bundle
+        config = AsyncClientConfig(url=HOST, token=TOKEN, verify="/etc/ssl/certs")
+        
+        # Disable certificate verification (not recommended for production)
+        config = AsyncClientConfig(url=HOST, token=TOKEN, verify=False)
+        
+        # Custom client certificate
+        config = AsyncClientConfig(
+            url=HOST,
+            token=TOKEN,
+            cert=("path/to/client.crt", "path/to/client.key")
+        )
+    """
+    custom_timeout = 30.0
+    config = AsyncClientConfig(
+        url=HOST,
+        token=TOKEN,
+        timeout=custom_timeout,
+        verify=CERT_PATH,  # Use configured cert path or disable verification
+        cert=None,         # Client certificate (if needed)
+        follow_redirects=True
+    )
+    assert isinstance(config.timeout, Timeout)
+    assert config.timeout == Timeout(custom_timeout)
+    # If we got here without an error, the verify parameter was accepted
+    assert config.follow_redirects is True
+
+    # Just verify that these configurations are accepted without error
+    AsyncClientConfig(
+        url=HOST,
+        token=TOKEN,
+        verify=False  # Disable SSL verification
+    )
+    
+    # Note: Client certificate tests are skipped as they require actual certificate files
 
 
 class Config:
@@ -23,6 +138,42 @@ class Config:
 
 
 CONFIG_CLASS = Config()
+
+
+def test_client_config_errors():
+    """Test ClientConfig error cases"""
+    with pytest.raises(TypeError):
+        ClientConfig()  # Missing required arguments
+    
+    with pytest.raises(TypeError):
+        ClientConfig(url=HOST)  # Missing token
+    
+    with pytest.raises(TypeError):
+        ClientConfig(token=TOKEN)  # Missing url
+
+def test_async_client_config_errors():
+    """Test AsyncClientConfig error cases"""
+    with pytest.raises(TypeError):
+        AsyncClientConfig()  # Missing required arguments
+    
+    with pytest.raises(TypeError):
+        AsyncClientConfig(url=HOST)  # Missing token
+    
+    with pytest.raises(TypeError):
+        AsyncClientConfig(token=TOKEN)  # Missing url
+
+def test_client_config_headers():
+    """Test that client config properly handles headers"""
+    config = ClientConfig(
+        url=HOST,
+        token=TOKEN,
+        headers={"Custom-Header": "test"}
+    )
+    # Headers should be merged, not overwritten
+    assert "Custom-Header" in config.headers
+    assert config.headers["Custom-Header"] == "test"
+    # Authorization header should still be present
+    assert "Authorization" in config.headers
 
 
 def test_load(respx_mock):

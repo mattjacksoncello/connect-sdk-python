@@ -3,7 +3,7 @@ import shlex
 from typing import List, Dict, Optional
 import httpx
 from onepasswordconnectsdk.client import Client
-from onepasswordconnectsdk.utils import get_timeout
+from onepasswordconnectsdk.utils import get_timeout, build_headers
 
 class ClientConfig(httpx.Client):
     """Configuration class for 1Password Connect synchronous clients"""
@@ -22,6 +22,15 @@ class ClientConfig(httpx.Client):
         """
         if 'timeout' not in kwargs:
             kwargs['timeout'] = get_timeout()
+        elif kwargs['timeout'] is None:
+            # Pass None directly to disable timeouts
+            kwargs['timeout'] = None
+
+        # Merge custom headers with authorization header
+        auth_headers = build_headers(token)
+        if 'headers' in kwargs:
+            auth_headers.update(kwargs['headers'])
+        kwargs['headers'] = auth_headers
             
         super().__init__(base_url=url, **kwargs)
         self.url = url
@@ -45,6 +54,15 @@ class AsyncClientConfig(httpx.AsyncClient):
         """
         if 'timeout' not in kwargs:
             kwargs['timeout'] = get_timeout()
+        elif kwargs['timeout'] is None:
+            # Pass None directly to disable timeouts
+            kwargs['timeout'] = None
+
+        # Merge custom headers with authorization header
+        auth_headers = build_headers(token)
+        if 'headers' in kwargs:
+            auth_headers.update(kwargs['headers'])
+        kwargs['headers'] = auth_headers
             
         super().__init__(base_url=url, **kwargs)
         self.url = url
