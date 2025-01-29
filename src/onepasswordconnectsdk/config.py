@@ -78,7 +78,7 @@ def load_dict(client: "Client", config: dict):
 
     opitem (required): describes the name of the item to access from 1Password
 
-    offield (required): describes the name of the field to access within
+    opfield (required): describes the name of the field to access within
     the specified item
 
     opvault: Only required if OP_VAULT is not set. Used to decribe the

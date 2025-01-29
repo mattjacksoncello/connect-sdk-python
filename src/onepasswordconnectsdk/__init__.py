@@ -4,12 +4,5 @@ from onepasswordconnectsdk.config import load
 from onepasswordconnectsdk.config import load_dict
 from onepasswordconnectsdk.client import new_client
 from onepasswordconnectsdk.client import new_client_from_environment
-
-__all__ = [
-    "client",
-    "load",
-    "load_dict",
-    "models",
-    "new_client",
-    "new_client_from_environment"
-]
+from onepasswordconnectsdk.async_client import new_async_client
+from onepasswordconnectsdk.async_client import new_async_client_from_environment

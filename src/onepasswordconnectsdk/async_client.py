@@ -4,10 +4,15 @@ from httpx import HTTPError
 from typing import Dict, List, Union, Optional
 import os
 
+from onepasswordconnectsdk.client import ENV_SERVICE_ACCOUNT_JWT_VARIABLE
+from onepasswordconnectsdk.models.constants import CONNECT_HOST_ENV_VARIABLE
+
 from onepasswordconnectsdk.serializer import Serializer
 from onepasswordconnectsdk.config import ClientConfig
 from onepasswordconnectsdk.utils import build_headers, is_valid_uuid, PathBuilder, get_timeout
 from onepasswordconnectsdk.errors import (
+    EnvironmentHostNotSetException,
+    EnvironmentTokenNotSetException,
     FailedToRetrieveItemException,
     FailedToRetrieveVaultException,
 )
@@ -32,14 +37,7 @@ class AsyncClient:
         self.serializer = Serializer()
 
     def create_session(self, url: str, token: str) -> httpx.AsyncClient:
-        headers = self.build_headers(token)
-        timeout = get_timeout()
-        
-        if self.config:
-            client_args = self.config.get_client_args(url, headers, timeout)
-            return httpx.AsyncClient(**client_args)
-            
-        return httpx.AsyncClient(base_url=url, headers=headers, timeout=timeout)
+        return httpx.AsyncClient(base_url=url, headers=self.build_headers(token), timeout=get_timeout())
 
     def build_headers(self, token: str) -> Dict[str, str]:
         return build_headers(token)
@@ -386,3 +384,48 @@ class AsyncClient:
 
     def sanitize_for_serialization(self, obj):
         return self.serializer.sanitize_for_serialization(obj)
+
+
+def new_async_client(url: str, token: str, **kwargs) -> AsyncClient:
+    """Builds a new client for interacting with 1Password Connect
+    
+    Args:
+        url: The url of the 1Password Connect API
+        token: The 1Password Service Account token
+        **kwargs: Additional httpx.AsyncClient configuration options
+
+    Returns:
+        AsyncClient: The 1Password Connect client
+    """
+    from onepasswordconnectsdk.config import AsyncClientConfig
+    config = AsyncClientConfig(url=url, token=token, **kwargs)
+    return AsyncClient(config)
+
+
+def new_async_client_from_environment(url: str = None, **kwargs) -> AsyncClient:
+    """Builds a new client for interacting with 1Password Connect
+    using the OP_CONNECT_TOKEN environment variable
+
+    Args:
+        url: The url of the 1Password Connect API
+        **kwargs: Additional httpx.AsyncClient configuration options
+
+    Returns:
+        AsyncClient: The 1Password Connect client
+    """
+    token = os.environ.get(ENV_SERVICE_ACCOUNT_JWT_VARIABLE)
+
+    if url is None:
+        url = os.environ.get(CONNECT_HOST_ENV_VARIABLE)
+        if url is None:
+            raise EnvironmentHostNotSetException(
+                f"{CONNECT_HOST_ENV_VARIABLE} environment variable is not set"
+            )
+
+    if token is None:
+        raise EnvironmentTokenNotSetException(
+            "There is no token available in the "
+            f"{ENV_SERVICE_ACCOUNT_JWT_VARIABLE} variable"
+        )
+
+    return new_async_client(url, token, certificate, **kwargs)
